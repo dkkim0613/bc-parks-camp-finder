@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Car,
   Clipboard,
+  DollarSign,
   ExternalLink,
   Flame,
   Home,
@@ -37,8 +38,9 @@ type StayOption = {
   weekend: boolean;
   maxParty: number;
   tents?: string;
-  requiresMultipleSites?: boolean;
+  siteKind?: string;
   price: string;
+  priceNote: string;
   facilities: string[];
   activities: string[];
   fireStatus: FireStatus;
@@ -73,8 +75,9 @@ const options: StayOption[] = [
     weekend: true,
     maxParty: 4,
     tents: "1-3 tents",
-    requiresMultipleSites: true,
-    price: "Official booking step confirms fees",
+    siteKind: "Standard single site",
+    price: "~$41-$59 CAD total",
+    priceNote: "1 night estimate: camping fee + $6 reservation fee; non-residents add $20",
     facilities: ["Flush toilets", "Showers", "Drinking water", "Boat launch"],
     activities: ["Ocean views", "Kayaking", "Diving", "Short shoreline walks"],
     fireStatus: "restricted",
@@ -97,7 +100,9 @@ const options: StayOption[] = [
     weekend: true,
     maxParty: 4,
     tents: "1-3 tents",
-    price: "Official booking step confirms fees",
+    siteKind: "Standard single site",
+    price: "~$47-$65 CAD total",
+    priceNote: "1 night estimate: camping fee + $6 reservation fee; non-residents add $20",
     facilities: ["Flush toilets", "Showers", "Drinking water", "Playground"],
     activities: ["Lake swimming", "Hiking", "Biking nearby", "Family beach time"],
     fireStatus: "restricted",
@@ -120,7 +125,9 @@ const options: StayOption[] = [
     weekend: true,
     maxParty: 4,
     tents: "1-3 tents",
-    price: "Official booking step confirms fees",
+    siteKind: "Double site",
+    price: "~$47-$65 CAD total",
+    priceNote: "Excluded by default: double-site booking would roughly double site fees",
     facilities: ["Pit/flush toilets", "Drinking water", "Boat launch", "Picnic areas"],
     activities: ["Lake paddling", "Beach", "Waterfalls", "Trail network"],
     fireStatus: "unknown",
@@ -142,7 +149,9 @@ const options: StayOption[] = [
     nights: "1-3 nights",
     weekend: false,
     maxParty: 4,
-    price: "Official booking step confirms fees",
+    siteKind: "Cabin",
+    price: "~$96-$146 CAD total",
+    priceNote: "1 night cabin estimate + $6 reservation fee; non-residents add $20",
     facilities: ["Nearby washrooms", "Lake access", "Picnic areas", "Family amenities"],
     activities: ["Swimming", "Paddling", "Easy walks", "Nearby family attractions"],
     fireStatus: "restricted",
@@ -164,7 +173,9 @@ const options: StayOption[] = [
     nights: "1-2 nights",
     weekend: true,
     maxParty: 4,
-    price: "Official booking step confirms fees",
+    siteKind: "Cabin",
+    price: "~$86-$136 CAD total",
+    priceNote: "1 night cabin estimate + $6 reservation fee; ferry/park extras not included",
     facilities: ["Ferry access", "Flush toilets", "Picnic areas", "Food nearby seasonally"],
     activities: ["Island walks", "Beaches", "Cycling", "Harbour views"],
     fireStatus: "allowed",
@@ -189,7 +200,7 @@ function App() {
     return options
       .filter((option) => option.type === activeTab)
       .filter((option) => option.maxParty <= 4)
-      .filter((option) => !option.requiresMultipleSites)
+      .filter((option) => !isMultiSiteBooking(option))
       .filter((option) => option.driveMinutes <= maxDrive)
       .filter((option) => !weekendOnly || option.weekend)
       .filter((option) => !overnightOnly || option.nights.includes("2") || option.nights.includes("3"))
@@ -280,6 +291,10 @@ function App() {
           <strong>{activeTab === "campsite" ? "1-3" : "Cabin"}</strong>
           <span>{activeTab === "campsite" ? "tents" : "list only"}</span>
         </div>
+        <div>
+          <strong>CAD</strong>
+          <span>estimated total</span>
+        </div>
         {activeTab === "campsite" && (
           <div>
             <strong>Single</strong>
@@ -301,7 +316,8 @@ function App() {
       <section className="activity-log">
         <h2>Daily scan log</h2>
         <div className="log-row new">New opening: Porteau Cove Sep 3-5 · campsite</div>
-        <div className="log-row">Excluded Golden Ears Alouette because it requires booking two campsites together</div>
+        <div className="log-row">Added estimated pricing using BC Parks base-fee plus reservation-fee rules</div>
+        <div className="log-row">Excluding all double/paired/two-site campsite results by default</div>
         <div className="log-row">Fire status rechecked against BC Wildfire restrictions · official link attached</div>
         <div className="log-row">BC Parks booking handoff ready · payment and final confirmation stay manual</div>
       </section>
@@ -343,13 +359,19 @@ function OptionCard({ option, onBook }: { option: StayOption; onBook: () => void
 
       <div className="facts">
         <span><CalendarDays size={16} /> Earliest {option.earliest}</span>
+        <span><DollarSign size={16} /> {option.price}</span>
         <span><Search size={16} /> {option.nights}</span>
+        {option.siteKind && <span><ShieldCheck size={16} /> {option.siteKind}</span>}
         <span><MapPin size={16} /> From {HOME_ADDRESS}</span>
         <span><Utensils size={16} /> {option.maxParty} people max</span>
         {option.tents && <span><Tent size={16} /> {option.tents}</span>}
       </div>
 
       <div className="detail-grid">
+        <div>
+          <h3>Estimated price</h3>
+          <p>{option.price}. {option.priceNote}.</p>
+        </div>
         <div>
           <h3>Facilities</h3>
           <p>{option.facilities.join(" · ")}</p>
@@ -388,6 +410,7 @@ Park field: ${preset.parkSearch}
 Equipment field: ${preset.equipment}
 From: ${HOME_ADDRESS} · approx. ${option.distanceKm} km / ${option.driveMinutes} min
 Cooking/fire: ${option.cooking}
+Estimated price: ${option.price} (${option.priceNote})
 Final payment and reservation confirmation must be completed manually on camping.bcparks.ca.`;
 
   const copyText = async (value: string) => {
@@ -464,6 +487,15 @@ function getBookingPreset(option: StayOption): BookingPreset {
     equipment: option.type === "cabin" ? "Cabin" : "Tent",
     partySize: "4 people",
   };
+}
+
+function isMultiSiteBooking(option: StayOption) {
+  if (option.type !== "campsite") {
+    return false;
+  }
+
+  const haystack = [option.siteKind, option.area, option.priceNote].join(" ").toLowerCase();
+  return /\b(double|paired|two[-\s]?site|2[-\s]?site|multi[-\s]?site)\b/.test(haystack);
 }
 
 function makeAutofillBookmarklet(preset: BookingPreset) {
