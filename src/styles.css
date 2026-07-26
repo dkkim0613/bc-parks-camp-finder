@@ -1,0 +1,533 @@
+:root {
+  color: #1e2a24;
+  background: #f4f0e7;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button,
+select,
+input,
+textarea {
+  font: inherit;
+}
+
+button,
+a {
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+button:hover,
+a:hover {
+  transform: translateY(-1px);
+}
+
+main {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 28px 0 48px;
+}
+
+.hero {
+  min-height: 320px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.55fr);
+  gap: 28px;
+  align-items: end;
+  color: #fbf7ed;
+  padding: 34px;
+  background:
+    linear-gradient(90deg, rgba(25, 50, 41, 0.92), rgba(25, 50, 41, 0.62)),
+    url("/bc-forest-bear.png")
+      center/cover;
+  border-radius: 8px;
+}
+
+.park-plate {
+  width: fit-content;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 9px 12px;
+  border: 1px solid rgba(251, 247, 237, 0.58);
+  border-radius: 8px;
+  background: rgba(251, 247, 237, 0.16);
+  color: #fffaf1;
+  font-weight: 900;
+}
+
+.eyebrow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 12px;
+  text-transform: uppercase;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  color: #d9efcf;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2.4rem, 6vw, 5.4rem);
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.hero-copy {
+  max-width: 650px;
+  margin: 18px 0 0;
+  font-size: 1.08rem;
+  line-height: 1.6;
+}
+
+.status-panel {
+  display: grid;
+  gap: 12px;
+  align-self: stretch;
+  align-content: end;
+}
+
+.status-panel span,
+.facts span {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.status-panel span {
+  min-height: 44px;
+  padding: 10px 12px;
+  background: rgba(251, 247, 237, 0.13);
+  border: 1px solid rgba(251, 247, 237, 0.34);
+  border-radius: 8px;
+}
+
+.controls,
+.summary {
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  background: #fffaf1;
+  border: 1px solid #ded4c4;
+  border-radius: 8px;
+}
+
+.tabs {
+  display: inline-flex;
+  border: 1px solid #c6bbab;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tabs button {
+  min-height: 42px;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  border: 0;
+  padding: 0 15px;
+  background: transparent;
+  color: #2f3b34;
+  cursor: pointer;
+}
+
+.tabs button.active {
+  background: #234238;
+  color: #fffaf1;
+}
+
+label {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 42px;
+  color: #33443a;
+  font-weight: 700;
+}
+
+select,
+input[type="range"] {
+  accent-color: #2f765f;
+}
+
+select {
+  height: 40px;
+  border: 1px solid #c6bbab;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #ffffff;
+}
+
+.check {
+  padding: 0 8px;
+}
+
+.refresh,
+.card-actions button,
+.modal-actions button,
+.modal-actions a {
+  min-height: 42px;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid #234238;
+  border-radius: 8px;
+  padding: 0 15px;
+  background: #234238;
+  color: white;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+
+.summary {
+  justify-content: space-between;
+}
+
+.summary div {
+  min-width: 150px;
+  display: grid;
+  gap: 2px;
+}
+
+.summary strong {
+  font-size: 1.12rem;
+}
+
+.summary span {
+  color: #657067;
+}
+
+.results {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.option-card {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  background: #fffdf8;
+  border: 1px solid #d8ccbc;
+  border-radius: 8px;
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.type-label {
+  margin: 0 0 4px;
+  color: #2f765f;
+  font-weight: 800;
+}
+
+.option-card h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.option-card p {
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
+.distance {
+  min-width: 92px;
+  display: grid;
+  justify-items: end;
+  align-content: start;
+  color: #274538;
+}
+
+.date-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.date-strip span,
+.date-strip strong {
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: #e6f2de;
+  color: #214635;
+  font-size: 0.88rem;
+}
+
+.date-strip strong {
+  background: #234238;
+  color: white;
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  color: #526058;
+  font-size: 0.92rem;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.detail-grid h3 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+}
+
+.fire {
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.fire p {
+  margin: 2px 0 0;
+}
+
+.fire.allowed {
+  background: #e7f5e8;
+  color: #234c30;
+}
+
+.fire.restricted {
+  background: #fff0dc;
+  color: #7a3f12;
+}
+
+.fire.unknown {
+  background: #eef1f0;
+  color: #45514b;
+}
+
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.card-actions a {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #c5b9a8;
+  border-radius: 8px;
+  padding: 0 12px;
+  color: #234238;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.activity-log {
+  margin-top: 18px;
+  padding: 18px;
+  background: #fefbf5;
+  border: 1px solid #d8ccbc;
+  border-radius: 8px;
+}
+
+.activity-log h2 {
+  margin: 0 0 10px;
+}
+
+.log-row {
+  padding: 10px 0;
+  border-top: 1px solid #e7ddcf;
+}
+
+.log-row.new {
+  color: #1f6f51;
+  font-weight: 800;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(17, 27, 23, 0.55);
+  z-index: 10;
+}
+
+.modal {
+  width: min(640px, 100%);
+  position: relative;
+  padding: 22px;
+  background: #fffdf8;
+  border-radius: 8px;
+  box-shadow: 0 22px 80px rgba(0, 0, 0, 0.22);
+}
+
+.close {
+  position: absolute;
+  right: 14px;
+  top: 12px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #c5b9a8;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+}
+
+.modal h2 {
+  margin: 0;
+}
+
+.booking-steps {
+  margin: 16px 0 0;
+  padding: 14px 14px 14px 34px;
+  border: 1px solid #d8ccbc;
+  border-radius: 8px;
+  background: #f8f3e9;
+}
+
+.booking-steps li {
+  margin: 5px 0;
+}
+
+.autofill-panel {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid #c2d7c9;
+  border-radius: 8px;
+  background: #edf7ee;
+}
+
+.bookmarklet {
+  width: fit-content;
+  min-height: 46px;
+  display: inline-flex;
+  gap: 9px;
+  align-items: center;
+  border-radius: 8px;
+  padding: 0 15px;
+  background: #1f8f54;
+  color: white;
+  text-decoration: none;
+  font-weight: 900;
+}
+
+.autofill-panel p {
+  margin: 0;
+  color: #335141;
+}
+
+.preset-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.preset-card span,
+.preset-card strong {
+  padding: 8px 10px;
+  border: 1px solid #d6c9b8;
+  border-radius: 8px;
+  background: #fffaf1;
+}
+
+.preset-card strong {
+  color: #164330;
+}
+
+textarea {
+  width: 100%;
+  min-height: 170px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #c5b9a8;
+  border-radius: 8px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.warning {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 14px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #fff0dc;
+  color: #7a3f12;
+}
+
+@media (max-width: 840px) {
+  main {
+    width: min(100% - 20px, 1180px);
+    padding-top: 10px;
+  }
+
+  .hero,
+  .results,
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    padding: 24px;
+  }
+
+  .controls {
+    align-items: stretch;
+  }
+
+  .tabs,
+  label,
+  .refresh {
+    width: 100%;
+  }
+
+  .tabs button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .card-top {
+    display: grid;
+  }
+
+  .distance {
+    justify-items: start;
+  }
+}
