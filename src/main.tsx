@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   AlertTriangle,
@@ -34,6 +34,7 @@ type StayOption = {
   driveMinutes: number;
   earliest: string;
   availableDates: string[];
+  availableDateOffsets: number[];
   nights: string;
   weekend: boolean;
   maxParty: number;
@@ -59,6 +60,14 @@ type BookingPreset = {
   partySize: string;
 };
 
+type RefreshStatus = {
+  refreshedAt: string;
+  source: string;
+  mode: string;
+  liveAvailabilityConnected: boolean;
+  note: string;
+};
+
 const HOME_ADDRESS = "1015 Howie Ave";
 
 const options: StayOption[] = [
@@ -71,6 +80,7 @@ const options: StayOption[] = [
     driveMinutes: 45,
     earliest: "Aug 7",
     availableDates: ["Aug 7-8", "Aug 18", "Sep 3-5", "Sep 21"],
+    availableDateOffsets: [4, 15, 31, 49],
     nights: "1-2 nights",
     weekend: true,
     maxParty: 4,
@@ -96,6 +106,7 @@ const options: StayOption[] = [
     driveMinutes: 75,
     earliest: "Aug 13",
     availableDates: ["Aug 13", "Aug 27-28", "Sep 9-11", "Oct 2-3"],
+    availableDateOffsets: [10, 24, 37, 60],
     nights: "1-3 nights",
     weekend: true,
     maxParty: 4,
@@ -121,6 +132,7 @@ const options: StayOption[] = [
     driveMinutes: 70,
     earliest: "Aug 20",
     availableDates: ["Aug 20", "Sep 6-7", "Sep 17-19", "Oct 4"],
+    availableDateOffsets: [17, 34, 45, 62],
     nights: "1-2 nights",
     weekend: true,
     maxParty: 4,
@@ -146,6 +158,7 @@ const options: StayOption[] = [
     driveMinutes: 90,
     earliest: "Sep 8",
     availableDates: ["Sep 8-10", "Sep 24", "Oct 6-8"],
+    availableDateOffsets: [36, 52, 64],
     nights: "1-3 nights",
     weekend: false,
     maxParty: 4,
@@ -170,6 +183,7 @@ const options: StayOption[] = [
     driveMinutes: 125,
     earliest: "Aug 29",
     availableDates: ["Aug 29-30", "Sep 15-17", "Oct 10"],
+    availableDateOffsets: [26, 43, 68],
     nights: "1-2 nights",
     weekend: true,
     maxParty: 4,
@@ -195,9 +209,26 @@ function App() {
   const [maxDrive, setMaxDrive] = useState(150);
   const [lastRefresh, setLastRefresh] = useState("Today 7:15 AM");
   const [selected, setSelected] = useState<StayOption | null>(null);
+  const [refreshStatus, setRefreshStatus] = useState<RefreshStatus | null>(null);
+
+  useEffect(() => {
+    fetch("/refresh-status.json", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: RefreshStatus | null) => {
+        if (data) {
+          setRefreshStatus(data);
+          setLastRefresh(data.refreshedAt);
+        }
+      })
+      .catch(() => {
+        setRefreshStatus(null);
+      });
+  }, []);
 
   const filtered = useMemo(() => {
     return options
+      .map((option) => applyDateWindow(option, range))
+      .filter((option): option is StayOption => option !== null)
       .filter((option) => option.type === activeTab)
       .filter((option) => option.maxParty <= 4)
       .filter((option) => !isMultiSiteBooking(option))
@@ -205,7 +236,7 @@ function App() {
       .filter((option) => !weekendOnly || option.weekend)
       .filter((option) => !overnightOnly || option.nights.includes("2") || option.nights.includes("3"))
       .sort((a, b) => a.driveMinutes - b.driveMinutes || a.distanceKm - b.distanceKm);
-  }, [activeTab, maxDrive, overnightOnly, weekendOnly]);
+  }, [activeTab, maxDrive, overnightOnly, range, weekendOnly]);
 
   const refresh = () => {
     setLastRefresh(new Date().toLocaleString([], { dateStyle: "medium", timeStyle: "short" }));
@@ -274,7 +305,7 @@ function App() {
         </label>
 
         <button className="refresh" onClick={refresh}>
-          <RefreshCw size={18} /> Refresh
+          <RefreshCw size={18} /> Refresh sample
         </button>
       </section>
 
@@ -315,6 +346,14 @@ function App() {
 
       <section className="activity-log">
         <h2>Daily scan log</h2>
+        {refreshStatus && (
+          <div className="log-row new">
+            GitHub refresh: {refreshStatus.refreshedAt} · {refreshStatus.source}
+          </div>
+        )}
+        <div className="log-row">
+          Live BC Parks availability feed: {refreshStatus?.liveAvailabilityConnected ? "connected" : "not connected yet"}
+        </div>
         <div className="log-row new">New opening: Porteau Cove Sep 3-5 · campsite</div>
         <div className="log-row">Added estimated pricing using BC Parks base-fee plus reservation-fee rules</div>
         <div className="log-row">Excluding all double/paired/two-site campsite results by default</div>
@@ -496,6 +535,27 @@ function isMultiSiteBooking(option: StayOption) {
 
   const haystack = [option.siteKind, option.area, option.priceNote].join(" ").toLowerCase();
   return /\b(double|paired|two[-\s]?site|2[-\s]?site|multi[-\s]?site)\b/.test(haystack);
+}
+
+function applyDateWindow(option: StayOption, range: DateRange) {
+  const maxOffset = range === "weekend" ? 90 : Number(range);
+  const datePairs = option.availableDates
+    .map((date, index) => ({
+      date,
+      offset: option.availableDateOffsets[index] ?? 999,
+    }))
+    .filter(({ offset }) => offset <= maxOffset);
+
+  if (datePairs.length === 0) {
+    return null;
+  }
+
+  const dates = datePairs.map(({ date }) => date);
+  return {
+    ...option,
+    earliest: dates[0],
+    availableDates: dates,
+  };
 }
 
 function makeAutofillBookmarklet(preset: BookingPreset) {

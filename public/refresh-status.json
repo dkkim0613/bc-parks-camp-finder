@@ -1,0 +1,14 @@
+{
+  "refreshedAt": "2026-08-03 12:17:10 America/Vancouver",
+  "source": "GitHub Actions scheduled refresh",
+  "mode": "sample-data-refresh",
+  "liveAvailabilityConnected": false,
+  "note": "GitHub automation refreshed the dashboard metadata. Live BC Parks availability collection is not connected yet.",
+  "criteria": {
+    "origin": "1015 Howie Ave",
+    "partySize": 4,
+    "campsiteRule": "single-site only; exclude double, paired, two-site, 2-site, and multi-site results",
+    "cabinRule": "cabins listed separately",
+    "windowDays": 90
+  }
+}
