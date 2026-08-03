@@ -259,9 +259,8 @@ function App() {
         setManualRefreshMessage(data?.message ?? "GitHub refresh workflow started.");
       } else if (data?.code === "missing_token") {
         setManualRefreshMessage(
-          "Manual refresh is connected, but the public site still needs a server-side GitHub token. Opening the GitHub Actions page as a safe fallback.",
+          "Manual refresh is connected, but the public site still needs a server-side GitHub token before it can start GitHub Actions directly. Use the fallback link below for now.",
         );
-        window.open(GITHUB_WORKFLOW_URL, "_blank", "noopener,noreferrer");
       } else {
         setManualRefreshMessage(data?.message ?? "Refresh request failed. Use the GitHub Actions page as fallback.");
       }
