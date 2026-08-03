@@ -21,7 +21,9 @@ html = html
   .replace("</head>", "<style>" + css + "</style></head>")
   .replace("</body>", "<script type=\"module\">" + js + "</script></body>");
 
-const worker = `const html = ${JSON.stringify(html)};
+const worker = `import { env as runtimeEnv } from "cloudflare:workers";
+
+const html = ${JSON.stringify(html)};
 const bearImage = Uint8Array.from(atob(${JSON.stringify(image)}), (char) => char.charCodeAt(0));
 const refreshStatus = ${JSON.stringify(refreshStatus)};
 
@@ -33,12 +35,20 @@ const json = (payload, status = 200) => new Response(JSON.stringify(payload), {
   }
 });
 
+function getGithubRefreshToken(requestEnv) {
+  return requestEnv?.GITHUB_REFRESH_TOKEN ||
+    requestEnv?.GH_REFRESH_TOKEN ||
+    runtimeEnv?.GITHUB_REFRESH_TOKEN ||
+    runtimeEnv?.GH_REFRESH_TOKEN ||
+    "";
+}
+
 async function triggerGithubRefresh(request, env) {
   if (request.method !== "POST") {
     return json({ ok: false, message: "Use POST to trigger a refresh." }, 405);
   }
 
-  const token = env?.GITHUB_REFRESH_TOKEN || env?.GH_REFRESH_TOKEN;
+  const token = getGithubRefreshToken(env);
   if (!token) {
     return json({
       ok: false,
