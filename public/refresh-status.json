@@ -1,9 +1,10 @@
 {
-  "refreshedAt": "2026-08-03 12:17:10 America/Vancouver",
-  "source": "GitHub Actions scheduled refresh",
+  "refreshedAt": "2026-08-03 12:23:14 America/Vancouver",
+  "source": "GitHub Actions manual refresh",
   "mode": "sample-data-refresh",
   "liveAvailabilityConnected": false,
-  "note": "GitHub automation refreshed the dashboard metadata. Live BC Parks availability collection is not connected yet.",
+  "manualRefreshConnected": true,
+  "note": "GitHub automation refreshed the dashboard metadata. Live BC Parks availability collection is not connected yet because direct public scraping still needs an approved server-side collector.",
   "criteria": {
     "origin": "1015 Howie Ave",
     "partySize": 4,

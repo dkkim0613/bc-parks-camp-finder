@@ -65,10 +65,13 @@ type RefreshStatus = {
   source: string;
   mode: string;
   liveAvailabilityConnected: boolean;
+  manualRefreshConnected?: boolean;
   note: string;
 };
 
 const HOME_ADDRESS = "1015 Howie Ave";
+const GITHUB_WORKFLOW_URL =
+  "https://github.com/dkkim0613/bc-parks-camp-finder/actions/workflows/daily-refresh.yml";
 
 const options: StayOption[] = [
   {
@@ -210,9 +213,11 @@ function App() {
   const [lastRefresh, setLastRefresh] = useState("Today 7:15 AM");
   const [selected, setSelected] = useState<StayOption | null>(null);
   const [refreshStatus, setRefreshStatus] = useState<RefreshStatus | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [manualRefreshMessage, setManualRefreshMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch("/refresh-status.json", { cache: "no-store" })
+  const loadRefreshStatus = async () => {
+    return fetch("/refresh-status.json", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : null))
       .then((data: RefreshStatus | null) => {
         if (data) {
@@ -223,6 +228,10 @@ function App() {
       .catch(() => {
         setRefreshStatus(null);
       });
+  };
+
+  useEffect(() => {
+    void loadRefreshStatus();
   }, []);
 
   const filtered = useMemo(() => {
@@ -238,8 +247,30 @@ function App() {
       .sort((a, b) => a.driveMinutes - b.driveMinutes || a.distanceKm - b.distanceKm);
   }, [activeTab, maxDrive, overnightOnly, range, weekendOnly]);
 
-  const refresh = () => {
-    setLastRefresh(new Date().toLocaleString([], { dateStyle: "medium", timeStyle: "short" }));
+  const refresh = async () => {
+    setIsRefreshing(true);
+    setManualRefreshMessage(null);
+
+    try {
+      const response = await fetch("/api/refresh", { method: "POST" });
+      const data = (await response.json().catch(() => null)) as { message?: string; code?: string } | null;
+
+      if (response.ok) {
+        setManualRefreshMessage(data?.message ?? "GitHub refresh workflow started.");
+      } else if (data?.code === "missing_token") {
+        setManualRefreshMessage(
+          "Manual refresh is connected, but the public site still needs a server-side GitHub token. Opening the GitHub Actions page as a safe fallback.",
+        );
+        window.open(GITHUB_WORKFLOW_URL, "_blank", "noopener,noreferrer");
+      } else {
+        setManualRefreshMessage(data?.message ?? "Refresh request failed. Use the GitHub Actions page as fallback.");
+      }
+    } catch {
+      setManualRefreshMessage("Refresh endpoint was not reachable. Use the GitHub Actions page as fallback.");
+    } finally {
+      setIsRefreshing(false);
+      void loadRefreshStatus();
+    }
   };
 
   return (
@@ -304,8 +335,8 @@ function App() {
           Multi-night
         </label>
 
-        <button className="refresh" onClick={refresh}>
-          <RefreshCw size={18} /> Refresh sample
+        <button className="refresh" onClick={refresh} disabled={isRefreshing}>
+          <RefreshCw size={18} /> {isRefreshing ? "Starting..." : "Refresh now"}
         </button>
       </section>
 
@@ -351,6 +382,14 @@ function App() {
             GitHub refresh: {refreshStatus.refreshedAt} · {refreshStatus.source}
           </div>
         )}
+        {manualRefreshMessage && <div className="log-row new">Manual refresh: {manualRefreshMessage}</div>}
+        <div className="log-row">
+          Manual refresh endpoint: {refreshStatus?.manualRefreshConnected ? "connected to GitHub Actions" : "pending"}
+          {" · "}
+          <a href={GITHUB_WORKFLOW_URL} target="_blank" rel="noreferrer">
+            GitHub Actions fallback
+          </a>
+        </div>
         <div className="log-row">
           Live BC Parks availability feed: {refreshStatus?.liveAvailabilityConnected ? "connected" : "not connected yet"}
         </div>

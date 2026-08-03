@@ -4,6 +4,14 @@ on:
   schedule:
     - cron: "0 13,14 * * *"
   workflow_dispatch:
+    inputs:
+      force:
+        description: Run refresh even outside the 6 AM Vancouver schedule guard
+        required: false
+        default: true
+        type: boolean
+  repository_dispatch:
+    types: [manual-refresh]
 
 permissions:
   contents: write
@@ -33,6 +41,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Refresh dashboard metadata
+        env:
+          FORCE_REFRESH: ${{ github.event_name != 'schedule' && 'true' || 'false' }}
         run: node scripts/refresh-github-data.mjs
 
       - name: Build

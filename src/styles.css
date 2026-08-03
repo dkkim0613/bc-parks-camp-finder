@@ -196,6 +196,13 @@ select {
   cursor: pointer;
 }
 
+.refresh:disabled,
+.card-actions button:disabled,
+.modal-actions button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 
 .summary {
   justify-content: space-between;
@@ -365,6 +372,11 @@ select {
 
 .log-row.new {
   color: #1f6f51;
+  font-weight: 800;
+}
+
+.log-row a {
+  color: #234238;
   font-weight: 800;
 }
 

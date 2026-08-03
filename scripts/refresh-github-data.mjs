@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+const eventName = process.env.GITHUB_EVENT_NAME ?? "local";
 const force = process.env.FORCE_REFRESH === "true";
 const now = new Date();
 const parts = new Intl.DateTimeFormat("en-CA", {
@@ -25,11 +26,19 @@ if (!force && vancouverHour !== 6) {
 const refreshedAt = `${value("year")}-${value("month")}-${value("day")} ${value("hour")}:${value("minute")}:${value("second")} America/Vancouver`;
 const payload = {
   refreshedAt,
-  source: "GitHub Actions scheduled refresh",
+  source:
+    eventName === "schedule"
+      ? "GitHub Actions scheduled refresh"
+      : eventName === "repository_dispatch"
+        ? "GitHub Actions manual site refresh"
+        : eventName === "workflow_dispatch"
+          ? "GitHub Actions manual refresh"
+          : "Local refresh",
   mode: "sample-data-refresh",
   liveAvailabilityConnected: false,
+  manualRefreshConnected: true,
   note:
-    "GitHub automation refreshed the dashboard metadata. Live BC Parks availability collection is not connected yet.",
+    "GitHub automation refreshed the dashboard metadata. Live BC Parks availability collection is not connected yet because direct public scraping still needs an approved server-side collector.",
   criteria: {
     origin: "1015 Howie Ave",
     partySize: 4,
