@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const eventName = process.env.GITHUB_EVENT_NAME ?? "local";
@@ -16,16 +16,29 @@ const parts = new Intl.DateTimeFormat("en-CA", {
 }).formatToParts(now);
 
 const value = (type) => parts.find((part) => part.type === type)?.value ?? "";
-const vancouverHour = Number(value("hour"));
+const today = `${value("year")}-${value("month")}-${value("day")}`;
+const statusPath = join("public", "refresh-status.json");
 
-if (!force && vancouverHour !== 6) {
-  console.log(`Skip refresh: Vancouver hour is ${vancouverHour}, not 6.`);
-  process.exit(0);
+// GitHub's cron scheduler can fire hours late, so we don't gate on a specific
+// Vancouver hour. Instead the schedule runs hourly around midnight Vancouver
+// and this guard makes sure only the first run of each Vancouver calendar
+// day actually refreshes (later hourly runs that day are no-ops).
+if (!force && existsSync(statusPath)) {
+  try {
+    const previous = JSON.parse(readFileSync(statusPath, "utf8"));
+    if (previous.refreshedDateVancouver === today) {
+      console.log(`Skip refresh: already refreshed today (${today}).`);
+      process.exit(0);
+    }
+  } catch {
+    // Unreadable/corrupt status file: fall through and refresh anyway.
+  }
 }
 
-const refreshedAt = `${value("year")}-${value("month")}-${value("day")} ${value("hour")}:${value("minute")}:${value("second")} America/Vancouver`;
+const refreshedAt = `${today} ${value("hour")}:${value("minute")}:${value("second")} America/Vancouver`;
 const payload = {
   refreshedAt,
+  refreshedDateVancouver: today,
   source:
     eventName === "schedule"
       ? "GitHub Actions scheduled refresh"
@@ -49,5 +62,5 @@ const payload = {
 };
 
 mkdirSync("public", { recursive: true });
-writeFileSync(join("public", "refresh-status.json"), `${JSON.stringify(payload, null, 2)}\n`);
+writeFileSync(statusPath, `${JSON.stringify(payload, null, 2)}\n`);
 console.log(`Wrote public/refresh-status.json at ${refreshedAt}`);

@@ -2,11 +2,16 @@ name: Daily BC Parks dashboard refresh
 
 on:
   schedule:
-    - cron: "0 13,14 * * *"
+    # Hourly through the midnight Vancouver window (covers both PDT and PST,
+    # 07:00-10:00 UTC), since GitHub can delay scheduled runs by several
+    # hours. The refresh script itself only does work once per Vancouver
+    # calendar day, so the extra hourly triggers are cheap no-ops once the
+    # day's refresh has landed.
+    - cron: "0 7-10 * * *"
   workflow_dispatch:
     inputs:
       force:
-        description: Run refresh even outside the 6 AM Vancouver schedule guard
+        description: Run refresh even if today's Vancouver refresh already happened
         required: false
         default: true
         type: boolean
