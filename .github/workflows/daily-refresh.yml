@@ -32,6 +32,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: TEMP recon of BC Parks reservation site
+        run: |
+          echo "== bcparks.ca headers =="
+          curl -sS -D - -o /tmp/home.html "https://bcparks.ca/" | head -20
+          echo "== camping.bcparks.ca headers =="
+          curl -sS -D - -o /tmp/camping.html "https://camping.bcparks.ca/" | head -20
+          echo "== camping.html size =="
+          wc -c /tmp/camping.html
+          echo "== script/link asset tags =="
+          grep -oE '(src|href)="[^"]+"' /tmp/camping.html | sort -u | head -60
+          echo "== possible api/domain hints in camping.html =="
+          grep -oiE 'https?://[a-z0-9.-]+' /tmp/camping.html | sort -u | head -40
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
