@@ -1,0 +1,46 @@
+name: Deploy to Cloudflare
+
+# Every merge to main deploys automatically, so a laptop is never required
+# just to ship a change - only to write one. workflow_dispatch is here too,
+# for re-running a deploy on demand without a new commit.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: cloudflare-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build for direct Cloudflare deploy
+        env:
+          CLOUDFLARE_DIRECT_DEPLOY: "1"
+        run: pnpm build
+
+      - name: Deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN secret is not set. Add it under Settings > Secrets and variables > Actions (needs Workers Scripts:Edit and D1:Edit), then re-run this workflow."
+            exit 1
+          fi
+          npx wrangler deploy --config dist/server/wrangler.json
