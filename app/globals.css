@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 :root {
   color: #1e2a24;
   background: #f4f0e7;
@@ -542,4 +544,22 @@ textarea {
   .distance {
     justify-items: start;
   }
+}
+
+.capture-input {
+  width: 100%;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid rgba(30, 42, 36, 0.2);
+  border-radius: 10px;
+  background: #fffdf8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.capture-results {
+  max-height: 340px;
+  overflow-y: auto;
+  margin-top: 8px;
 }

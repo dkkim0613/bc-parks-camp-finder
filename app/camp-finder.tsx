@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { createRoot } from "react-dom/client";
+"use client";
+
+import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   AlertTriangle,
   CalendarDays,
@@ -19,223 +20,49 @@ import {
   Utensils,
   Waves,
 } from "lucide-react";
-import "./styles.css";
-
-type StayType = "campsite" | "cabin";
-type DateRange = "30" | "60" | "90" | "weekend";
-type FireStatus = "allowed" | "restricted" | "unknown";
-
-type StayOption = {
-  id: string;
-  type: StayType;
-  park: string;
-  area: string;
-  distanceKm: number;
-  driveMinutes: number;
-  earliest: string;
-  availableDates: string[];
-  availableDateOffsets: number[];
-  nights: string;
-  weekend: boolean;
-  maxParty: number;
-  tents?: string;
-  siteKind?: string;
-  price: string;
-  priceNote: string;
-  facilities: string[];
-  activities: string[];
-  fireStatus: FireStatus;
-  cooking: string;
-  sourceUrl: string;
-  bookingUrl: string;
-  fireUrl: string;
-};
-
-type BookingPreset = {
-  bookingType: "Campsite" | "Cabin";
-  parkSearch: string;
-  arrival: string;
-  departure: string;
-  equipment: string;
-  partySize: string;
-};
-
-type RefreshStatus = {
-  refreshedAt: string;
-  source: string;
-  mode: string;
-  liveAvailabilityConnected: boolean;
-  manualRefreshConnected?: boolean;
-  note: string;
-};
+import { captureBookmarklet } from "@/lib/bcparks-capture";
+import type { BookingPreset, DateRange, RefreshStatus, StayOption, StayType } from "./types";
 
 const HOME_ADDRESS = "1015 Howie Ave";
-const GITHUB_WORKFLOW_URL =
-  "https://github.com/dkkim0613/bc-parks-camp-finder/actions/workflows/daily-refresh.yml";
 
-const options: StayOption[] = [
-  {
-    id: "porteau-cove-main",
-    type: "campsite",
-    park: "Porteau Cove Park",
-    area: "Oceanfront campsites",
-    distanceKm: 47,
-    driveMinutes: 45,
-    earliest: "Aug 7",
-    availableDates: ["Aug 7-8", "Aug 18", "Sep 3-5", "Sep 21"],
-    availableDateOffsets: [4, 15, 31, 49],
-    nights: "1-2 nights",
-    weekend: true,
-    maxParty: 4,
-    tents: "1-3 tents",
-    siteKind: "Standard single site",
-    price: "~$41-$59 CAD total",
-    priceNote: "1 night estimate: camping fee + $6 reservation fee; non-residents add $20",
-    facilities: ["Flush toilets", "Showers", "Drinking water", "Boat launch"],
-    activities: ["Ocean views", "Kayaking", "Diving", "Short shoreline walks"],
-    fireStatus: "restricted",
-    cooking: "Gas/propane stove likely okay; confirm bulletin before travel",
-    sourceUrl: "https://bcparks.ca/porteau-cove-park/",
-    bookingUrl: "https://camping.bcparks.ca/",
-    fireUrl:
-      "https://www2.gov.bc.ca/gov/content/safety/wildfire-status/prevention/fire-bans-and-restrictions",
-  },
-  {
-    id: "alice-lake-camping",
-    type: "campsite",
-    park: "Alice Lake Park",
-    area: "Family campground",
-    distanceKm: 78,
-    driveMinutes: 75,
-    earliest: "Aug 13",
-    availableDates: ["Aug 13", "Aug 27-28", "Sep 9-11", "Oct 2-3"],
-    availableDateOffsets: [10, 24, 37, 60],
-    nights: "1-3 nights",
-    weekend: true,
-    maxParty: 4,
-    tents: "1-3 tents",
-    siteKind: "Standard single site",
-    price: "~$47-$65 CAD total",
-    priceNote: "1 night estimate: camping fee + $6 reservation fee; non-residents add $20",
-    facilities: ["Flush toilets", "Showers", "Drinking water", "Playground"],
-    activities: ["Lake swimming", "Hiking", "Biking nearby", "Family beach time"],
-    fireStatus: "restricted",
-    cooking: "Use contained camp stove; campfires depend on current order",
-    sourceUrl: "https://bcparks.ca/alice-lake-park/",
-    bookingUrl: "https://camping.bcparks.ca/",
-    fireUrl:
-      "https://www2.gov.bc.ca/gov/content/safety/wildfire-status/prevention/fire-bans-and-restrictions",
-  },
-  {
-    id: "golden-ears-alouette",
-    type: "campsite",
-    park: "Golden Ears Park",
-    area: "Alouette Lake area",
-    distanceKm: 61,
-    driveMinutes: 70,
-    earliest: "Aug 20",
-    availableDates: ["Aug 20", "Sep 6-7", "Sep 17-19", "Oct 4"],
-    availableDateOffsets: [17, 34, 45, 62],
-    nights: "1-2 nights",
-    weekend: true,
-    maxParty: 4,
-    tents: "1-3 tents",
-    siteKind: "Double site",
-    price: "~$47-$65 CAD total",
-    priceNote: "Excluded by default: double-site booking would roughly double site fees",
-    facilities: ["Pit/flush toilets", "Drinking water", "Boat launch", "Picnic areas"],
-    activities: ["Lake paddling", "Beach", "Waterfalls", "Trail network"],
-    fireStatus: "unknown",
-    cooking: "Check park advisory and fire centre before using open flame",
-    sourceUrl: "https://bcparks.ca/golden-ears-park/",
-    bookingUrl: "https://camping.bcparks.ca/",
-    fireUrl:
-      "https://www2.gov.bc.ca/gov/content/safety/wildfire-status/prevention/fire-bans-and-restrictions",
-  },
-  {
-    id: "cultus-lake-cabin",
-    type: "cabin",
-    park: "Cultus Lake Park",
-    area: "Cabin-style stays",
-    distanceKm: 103,
-    driveMinutes: 90,
-    earliest: "Sep 8",
-    availableDates: ["Sep 8-10", "Sep 24", "Oct 6-8"],
-    availableDateOffsets: [36, 52, 64],
-    nights: "1-3 nights",
-    weekend: false,
-    maxParty: 4,
-    siteKind: "Cabin",
-    price: "~$96-$146 CAD total",
-    priceNote: "1 night cabin estimate + $6 reservation fee; non-residents add $20",
-    facilities: ["Nearby washrooms", "Lake access", "Picnic areas", "Family amenities"],
-    activities: ["Swimming", "Paddling", "Easy walks", "Nearby family attractions"],
-    fireStatus: "restricted",
-    cooking: "Cabin cooking rules vary; verify appliance and flame rules",
-    sourceUrl: "https://bcparks.ca/cultus-lake-park/",
-    bookingUrl: "https://camping.bcparks.ca/",
-    fireUrl:
-      "https://www2.gov.bc.ca/gov/content/safety/wildfire-status/prevention/fire-bans-and-restrictions",
-  },
-  {
-    id: "saysutshun-cabin",
-    type: "cabin",
-    park: "Saysutshun Newcastle Island Park",
-    area: "Group-friendly cabin options",
-    distanceKm: 82,
-    driveMinutes: 125,
-    earliest: "Aug 29",
-    availableDates: ["Aug 29-30", "Sep 15-17", "Oct 10"],
-    availableDateOffsets: [26, 43, 68],
-    nights: "1-2 nights",
-    weekend: true,
-    maxParty: 4,
-    siteKind: "Cabin",
-    price: "~$86-$136 CAD total",
-    priceNote: "1 night cabin estimate + $6 reservation fee; ferry/park extras not included",
-    facilities: ["Ferry access", "Flush toilets", "Picnic areas", "Food nearby seasonally"],
-    activities: ["Island walks", "Beaches", "Cycling", "Harbour views"],
-    fireStatus: "allowed",
-    cooking: "Contained stove preferred; confirm local island/park restrictions",
-    sourceUrl: "https://bcparks.ca/saysutshun-newcastle-island-marine-park/",
-    bookingUrl: "https://camping.bcparks.ca/",
-    fireUrl:
-      "https://www2.gov.bc.ca/gov/content/safety/wildfire-status/prevention/fire-bans-and-restrictions",
-  },
-];
+export type CapturedRowRecord = {
+  id: string;
+  name: string;
+  category: string;
+  level: string;
+  availability: string;
+  available: number;
+  start_date: string;
+  end_date: string;
+  nights: string;
+  equipment: string;
+  captured_at: string;
+};
 
-function App() {
+export default function CampFinder({
+  stays,
+  initialRefreshStatus,
+  initialCaptured,
+}: {
+  stays: StayOption[];
+  initialRefreshStatus: RefreshStatus | null;
+  initialCaptured: CapturedRowRecord[];
+}) {
   const [activeTab, setActiveTab] = useState<StayType>("campsite");
   const [range, setRange] = useState<DateRange>("90");
   const [weekendOnly, setWeekendOnly] = useState(false);
   const [overnightOnly, setOvernightOnly] = useState(false);
   const [maxDrive, setMaxDrive] = useState(150);
-  const [lastRefresh, setLastRefresh] = useState("Today 7:15 AM");
   const [selected, setSelected] = useState<StayOption | null>(null);
-  const [refreshStatus, setRefreshStatus] = useState<RefreshStatus | null>(null);
+  const [refreshStatus, setRefreshStatus] = useState<RefreshStatus | null>(initialRefreshStatus);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [manualRefreshMessage, setManualRefreshMessage] = useState<string | null>(null);
+  const [captured, setCaptured] = useState<CapturedRowRecord[]>(initialCaptured);
 
-  const loadRefreshStatus = async () => {
-    return fetch("/refresh-status.json", { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: RefreshStatus | null) => {
-        if (data) {
-          setRefreshStatus(data);
-          setLastRefresh(data.refreshedAt);
-        }
-      })
-      .catch(() => {
-        setRefreshStatus(null);
-      });
-  };
-
-  useEffect(() => {
-    void loadRefreshStatus();
-  }, []);
+  const lastRefresh = refreshStatus?.refreshedAt ?? "Not refreshed yet";
 
   const filtered = useMemo(() => {
-    return options
+    return stays
       .map((option) => applyDateWindow(option, range))
       .filter((option): option is StayOption => option !== null)
       .filter((option) => option.type === activeTab)
@@ -243,9 +70,11 @@ function App() {
       .filter((option) => !isMultiSiteBooking(option))
       .filter((option) => option.driveMinutes <= maxDrive)
       .filter((option) => !weekendOnly || option.weekend)
-      .filter((option) => !overnightOnly || option.nights.includes("2") || option.nights.includes("3"))
+      .filter(
+        (option) => !overnightOnly || option.nights.includes("2") || option.nights.includes("3")
+      )
       .sort((a, b) => a.driveMinutes - b.driveMinutes || a.distanceKm - b.distanceKm);
-  }, [activeTab, maxDrive, overnightOnly, range, weekendOnly]);
+  }, [activeTab, maxDrive, overnightOnly, range, stays, weekendOnly]);
 
   const refresh = async () => {
     setIsRefreshing(true);
@@ -253,22 +82,21 @@ function App() {
 
     try {
       const response = await fetch("/api/refresh", { method: "POST" });
-      const data = (await response.json().catch(() => null)) as { message?: string; code?: string } | null;
+      const data = (await response.json().catch(() => null)) as {
+        message?: string;
+        status?: RefreshStatus;
+      } | null;
 
       if (response.ok) {
-        setManualRefreshMessage(data?.message ?? "GitHub refresh workflow started.");
-      } else if (data?.code === "missing_token") {
-        setManualRefreshMessage(
-          "Manual refresh is connected, but the public site still needs a server-side GitHub token before it can start GitHub Actions directly. Use the fallback link below for now.",
-        );
+        setManualRefreshMessage(data?.message ?? "Dashboard metadata refreshed.");
+        if (data?.status) setRefreshStatus(data.status);
       } else {
-        setManualRefreshMessage(data?.message ?? "Refresh request failed. Use the GitHub Actions page as fallback.");
+        setManualRefreshMessage(data?.message ?? "Refresh request failed.");
       }
     } catch {
-      setManualRefreshMessage("Refresh endpoint was not reachable. Use the GitHub Actions page as fallback.");
+      setManualRefreshMessage("Refresh endpoint was not reachable.");
     } finally {
       setIsRefreshing(false);
-      void loadRefreshStatus();
     }
   };
 
@@ -276,27 +104,42 @@ function App() {
     <main>
       <section className="hero">
         <div>
-          <div className="park-plate"><Waves size={18} /> Forest & Bear Finder</div>
+          <div className="park-plate">
+            <Waves size={18} /> Forest &amp; Bear Finder
+          </div>
           <p className="eyebrow">Flexible date search · max 4 people · no password stored</p>
           <h1>BC Parks Camp Finder</h1>
           <p className="hero-copy">
-            Find realistic camping and cabin openings near {HOME_ADDRESS}, then jump to BC Parks with a
-            ready booking summary.
+            Find realistic camping and cabin openings near {HOME_ADDRESS}, then jump to BC Parks with
+            a ready booking summary.
           </p>
         </div>
         <div className="status-panel">
-          <span><Home size={17} /> {HOME_ADDRESS}</span>
-          <span><CalendarDays size={17} /> Next {range === "weekend" ? "open weekends" : `${range} days`}</span>
-          <span><ShieldCheck size={17} /> Browser password manager only</span>
+          <span>
+            <Home size={17} /> {HOME_ADDRESS}
+          </span>
+          <span>
+            <CalendarDays size={17} /> Next{" "}
+            {range === "weekend" ? "open weekends" : `${range} days`}
+          </span>
+          <span>
+            <ShieldCheck size={17} /> Browser password manager only
+          </span>
         </div>
       </section>
 
       <section className="controls" aria-label="Search controls">
         <div className="tabs">
-          <button className={activeTab === "campsite" ? "active" : ""} onClick={() => setActiveTab("campsite")}>
+          <button
+            className={activeTab === "campsite" ? "active" : ""}
+            onClick={() => setActiveTab("campsite")}
+          >
             <Tent size={18} /> Campsites
           </button>
-          <button className={activeTab === "cabin" ? "active" : ""} onClick={() => setActiveTab("cabin")}>
+          <button
+            className={activeTab === "cabin" ? "active" : ""}
+            onClick={() => setActiveTab("cabin")}
+          >
             <Trees size={18} /> Cabins
           </button>
         </div>
@@ -325,17 +168,25 @@ function App() {
         </label>
 
         <label className="check">
-          <input type="checkbox" checked={weekendOnly} onChange={(event) => setWeekendOnly(event.target.checked)} />
+          <input
+            type="checkbox"
+            checked={weekendOnly}
+            onChange={(event) => setWeekendOnly(event.target.checked)}
+          />
           Weekend only
         </label>
 
         <label className="check">
-          <input type="checkbox" checked={overnightOnly} onChange={(event) => setOvernightOnly(event.target.checked)} />
+          <input
+            type="checkbox"
+            checked={overnightOnly}
+            onChange={(event) => setOvernightOnly(event.target.checked)}
+          />
           Multi-night
         </label>
 
         <button className="refresh" onClick={refresh} disabled={isRefreshing}>
-          <RefreshCw size={18} /> {isRefreshing ? "Starting..." : "Refresh now"}
+          <RefreshCw size={18} /> {isRefreshing ? "Refreshing..." : "Refresh now"}
         </button>
       </section>
 
@@ -374,33 +225,160 @@ function App() {
         ))}
       </section>
 
+      <CapturePanel captured={captured} onCaptured={setCaptured} />
+
       <section className="activity-log">
         <h2>Daily scan log</h2>
         {refreshStatus && (
           <div className="log-row new">
-            GitHub refresh: {refreshStatus.refreshedAt} · {refreshStatus.source}
+            Last refresh: {refreshStatus.refreshedAt} · {refreshStatus.source}
           </div>
         )}
-        {manualRefreshMessage && <div className="log-row new">Manual refresh: {manualRefreshMessage}</div>}
+        {manualRefreshMessage && (
+          <div className="log-row new">Manual refresh: {manualRefreshMessage}</div>
+        )}
         <div className="log-row">
-          Manual refresh endpoint: {refreshStatus?.manualRefreshConnected ? "connected to GitHub Actions" : "pending"}
-          {" · "}
-          <a href={GITHUB_WORKFLOW_URL} target="_blank" rel="noreferrer">
-            GitHub Actions fallback
-          </a>
+          Scheduled refresh: Cloudflare Cron Trigger at midnight America/Vancouver
         </div>
         <div className="log-row">
-          Live BC Parks availability feed: {refreshStatus?.liveAvailabilityConnected ? "connected" : "not connected yet"}
+          Live BC Parks availability feed:{" "}
+          {refreshStatus?.liveAvailabilityConnected ? "connected" : "not connected yet"}
         </div>
-        <div className="log-row new">New opening: Porteau Cove Sep 3-5 · campsite</div>
-        <div className="log-row">Added estimated pricing using BC Parks base-fee plus reservation-fee rules</div>
-        <div className="log-row">Excluding all double/paired/two-site campsite results by default</div>
-        <div className="log-row">Fire status rechecked against BC Wildfire restrictions · official link attached</div>
-        <div className="log-row">BC Parks booking handoff ready · payment and final confirmation stay manual</div>
+        {refreshStatus?.note && <div className="log-row">{refreshStatus.note}</div>}
+        <div className="log-row">
+          Added estimated pricing using BC Parks base-fee plus reservation-fee rules
+        </div>
+        <div className="log-row">
+          Excluding all double/paired/two-site campsite results by default
+        </div>
+        <div className="log-row">
+          Fire status rechecked against BC Wildfire restrictions · official link attached
+        </div>
+        <div className="log-row">
+          BC Parks booking handoff ready · payment and final confirmation stay manual
+        </div>
       </section>
 
       {selected && <BookingModal option={selected} onClose={() => setSelected(null)} />}
     </main>
+  );
+}
+
+/**
+ * Half-automated capture of real BC Parks availability.
+ *
+ * camping.bcparks.ca sits behind an Azure WAF bot challenge, so nothing here
+ * fetches that site. The user runs their own search in their own logged-in tab
+ * and clicks the bookmarklet, which reads the results already on screen and
+ * copies them; pasting that JSON below stores it.
+ */
+function CapturePanel({
+  captured,
+  onCaptured,
+}: {
+  captured: CapturedRowRecord[];
+  onCaptured: (rows: CapturedRowRecord[]) => void;
+}) {
+  const [pasted, setPasted] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  // Read on the client so the bookmarklet points at whatever host this
+  // dashboard is actually being served from. useSyncExternalStore keeps the
+  // server render ("") and the first client render in agreement.
+  const origin = useSyncExternalStore(
+    () => () => {},
+    () => window.location.origin,
+    () => ""
+  );
+  const bookmarklet = captureBookmarklet(origin ? `${origin}/api/capture` : undefined);
+
+  const submit = async () => {
+    setIsSaving(true);
+    setMessage(null);
+    try {
+      const parsed = JSON.parse(pasted);
+      const response = await fetch("/api/capture", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(parsed),
+      });
+      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+      setMessage(data?.message ?? (response.ok ? "Saved." : "Could not save that capture."));
+
+      if (response.ok) {
+        setPasted("");
+        const refreshed = await fetch("/api/capture", { cache: "no-store" });
+        const body = (await refreshed.json().catch(() => null)) as {
+          rows?: CapturedRowRecord[];
+        } | null;
+        if (body?.rows) onCaptured(body.rows);
+      }
+    } catch {
+      setMessage("That did not parse as JSON. Copy the whole bookmarklet output and paste it again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const availableRows = captured.filter((row) => row.available);
+
+  return (
+    <section className="activity-log">
+      <h2>Capture real BC Parks availability</h2>
+      <p>
+        Live scraping is blocked by BC Parks&apos; bot protection, so this reads the results page you
+        already have open instead. Nothing here contacts BC Parks on its own.
+      </p>
+
+      <div className="autofill-panel">
+        <a className="bookmarklet" href={bookmarklet}>
+          <KeyRound size={18} /> BC Parks Capture
+        </a>
+        <p>Drag this to your bookmarks bar once.</p>
+      </div>
+
+      <ol className="booking-steps">
+        <li>Search on camping.bcparks.ca as usual and switch the results to List view.</li>
+        <li>
+          Click the saved <strong>BC Parks Capture</strong> bookmark — it sends what is on screen
+          straight here. Drill into a region or park and click again for finer detail.
+        </li>
+        <li>No copy/paste needed. The box below is only a fallback if the send is blocked.</li>
+      </ol>
+
+      <textarea
+        className="capture-input"
+        value={pasted}
+        onChange={(event) => setPasted(event.target.value)}
+        placeholder="Paste the captured JSON here"
+        rows={4}
+      />
+      <div className="modal-actions">
+        <button onClick={submit} disabled={isSaving || !pasted.trim()}>
+          <Clipboard size={17} /> {isSaving ? "Saving..." : "Save capture"}
+        </button>
+      </div>
+      {message && <div className="log-row new">{message}</div>}
+
+      {captured.length > 0 && (
+        <>
+          <div className="log-row new">
+            {availableRows.length} available of {captured.length} captured row(s)
+          </div>
+          <div className="capture-results">
+            {captured.map((row) => (
+              <div key={row.id} className={`log-row ${row.available ? "new" : ""}`}>
+                {row.available ? "○" : "×"} {row.name}
+                {row.category ? ` · ${row.category}` : ""}
+                {row.start_date ? ` · ${row.start_date}` : ""}
+                {row.end_date ? ` → ${row.end_date}` : ""}
+                {row.level ? ` · from ${row.level}` : ""}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -435,19 +413,39 @@ function OptionCard({ option, onBook }: { option: StayOption; onBook: () => void
       </div>
 
       <div className="facts">
-        <span><CalendarDays size={16} /> Earliest {option.earliest}</span>
-        <span><DollarSign size={16} /> {option.price}</span>
-        <span><Search size={16} /> {option.nights}</span>
-        {option.siteKind && <span><ShieldCheck size={16} /> {option.siteKind}</span>}
-        <span><MapPin size={16} /> From {HOME_ADDRESS}</span>
-        <span><Utensils size={16} /> {option.maxParty} people max</span>
-        {option.tents && <span><Tent size={16} /> {option.tents}</span>}
+        <span>
+          <CalendarDays size={16} /> Earliest {option.earliest}
+        </span>
+        <span>
+          <DollarSign size={16} /> {option.price}
+        </span>
+        <span>
+          <Search size={16} /> {option.nights}
+        </span>
+        {option.siteKind && (
+          <span>
+            <ShieldCheck size={16} /> {option.siteKind}
+          </span>
+        )}
+        <span>
+          <MapPin size={16} /> From {HOME_ADDRESS}
+        </span>
+        <span>
+          <Utensils size={16} /> {option.maxParty} people max
+        </span>
+        {option.tents && (
+          <span>
+            <Tent size={16} /> {option.tents}
+          </span>
+        )}
       </div>
 
       <div className="detail-grid">
         <div>
           <h3>Estimated price</h3>
-          <p>{option.price}. {option.priceNote}.</p>
+          <p>
+            {option.price}. {option.priceNote}.
+          </p>
         </div>
         <div>
           <h3>Facilities</h3>
@@ -468,8 +466,12 @@ function OptionCard({ option, onBook }: { option: StayOption; onBook: () => void
       </div>
 
       <div className="card-actions">
-        <a href={option.sourceUrl} target="_blank" rel="noreferrer">Park details</a>
-        <a href={option.fireUrl} target="_blank" rel="noreferrer">Fire bulletin</a>
+        <a href={option.sourceUrl} target="_blank" rel="noreferrer">
+          Park details
+        </a>
+        <a href={option.fireUrl} target="_blank" rel="noreferrer">
+          Fire bulletin
+        </a>
         <button onClick={onBook}>Prepare booking</button>
       </div>
     </article>
@@ -503,13 +505,17 @@ Final payment and reservation confirmation must be completed manually on camping
   return (
     <div className="modal-backdrop" role="presentation">
       <section className="modal" role="dialog" aria-modal="true" aria-labelledby="booking-title">
-        <button className="close" onClick={onClose} aria-label="Close">×</button>
-        <p className="eyebrow"><KeyRound size={15} /> Fast booking handoff</p>
+        <button className="close" onClick={onClose} aria-label="Close">
+          ×
+        </button>
+        <p className="eyebrow">
+          <KeyRound size={15} /> Fast booking handoff
+        </p>
         <h2 id="booking-title">{option.park}</h2>
         <p>
-          BC Parks uses custom fields, so plain copy/paste will not fill the equipment dropdown. Use the
-          helper below inside the official BC Parks tab to try selecting the matching tab, park, dates, and
-          equipment for you.
+          BC Parks uses custom fields, so plain copy/paste will not fill the equipment dropdown. Use
+          the helper below inside the official BC Parks tab to try selecting the matching tab, park,
+          dates, and equipment for you.
         </p>
 
         <div className="autofill-panel">
@@ -517,33 +523,43 @@ Final payment and reservation confirmation must be completed manually on camping
             <KeyRound size={18} /> BC Parks Autofill: {preset.parkSearch}
           </a>
           <p>
-            Drag this button to the Chrome bookmarks bar once for this option. Then open BC Parks and click
-            that bookmark while you are on the reservation page.
+            Drag this button to the Chrome bookmarks bar once for this option. Then open BC Parks and
+            click that bookmark while you are on the reservation page.
           </p>
         </div>
 
         <ol className="booking-steps">
           <li>Drag the green autofill button to your bookmarks bar.</li>
           <li>Open BC Parks booking.</li>
-          <li>Click the saved <strong>BC Parks Autofill</strong> bookmark on the BC Parks page.</li>
+          <li>
+            Click the saved <strong>BC Parks Autofill</strong> bookmark on the BC Parks page.
+          </li>
           <li>Review everything, search, and complete cart/payment manually.</li>
         </ol>
 
         <div className="preset-card">
           <span>{preset.bookingType}</span>
           <strong>{preset.parkSearch}</strong>
-          <span>{preset.arrival} to {preset.departure}</span>
-          <span>{preset.equipment} · {preset.partySize}</span>
+          <span>
+            {preset.arrival} to {preset.departure}
+          </span>
+          <span>
+            {preset.equipment} · {preset.partySize}
+          </span>
         </div>
 
         <div className="modal-actions">
-          <button onClick={() => copyText(bookmarklet)}><Clipboard size={17} /> Copy helper link</button>
-          <button onClick={openBooking}><ExternalLink size={17} /> Open BC Parks</button>
+          <button onClick={() => copyText(bookmarklet)}>
+            <Clipboard size={17} /> Copy helper link
+          </button>
+          <button onClick={openBooking}>
+            <ExternalLink size={17} /> Open BC Parks
+          </button>
         </div>
         <div className="warning">
           <AlertTriangle size={17} />
-          If BC Parks changes its page structure, the helper may stop at highlighting the fields. It will never
-          submit payment or final confirmation.
+          If BC Parks changes its page structure, the helper may stop at highlighting the fields. It
+          will never submit payment or final confirmation.
         </div>
       </section>
     </div>
@@ -551,7 +567,7 @@ Final payment and reservation confirmation must be completed manually on camping
 }
 
 function getBookingPreset(option: StayOption): BookingPreset {
-  const firstDate = option.availableDates[0];
+  const firstDate = option.availableDates[0] ?? "";
   const [arrivalLabel, departureLabel] = firstDate.includes("-")
     ? firstDate.split("-")
     : [firstDate, nextDayLabel(firstDate)];
@@ -694,5 +710,3 @@ function nextDayLabel(label: string) {
   date.setDate(date.getDate() + 1);
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
-
-createRoot(document.getElementById("root")!).render(<App />);
