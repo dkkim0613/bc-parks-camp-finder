@@ -76,6 +76,38 @@ export default function CampFinder({
       .sort((a, b) => a.driveMinutes - b.driveMinutes || a.distanceKm - b.distanceKm);
   }, [activeTab, maxDrive, overnightOnly, range, stays, weekendOnly]);
 
+  // Ties the bookmarklet capture data to the curated park list: each card shows
+  // the most recent real capture for that park, if the user has ever run one.
+  const captureMatches = useMemo(() => {
+    const map = new Map<string, CapturedRowRecord>();
+    for (const option of filtered) {
+      const match = findCaptureMatch(option.park, captured);
+      if (match) map.set(option.id, match);
+    }
+    return map;
+  }, [captured, filtered]);
+
+  // Captures for parks not in the curated list at all - still worth surfacing,
+  // just without the curated pricing/facilities detail those cards show.
+  const extraCaptured = useMemo(() => {
+    const curatedNames = stays.map((option) => normalizeParkName(option.park));
+    const seen = new Set<string>();
+    return captured
+      .filter((row) => row.available)
+      .filter((row) => row.category.toLowerCase() === activeTab)
+      .filter((row) => {
+        const name = normalizeParkName(row.name);
+        return name.length > 0 && !curatedNames.some((park) => park === name || park.includes(name) || name.includes(park));
+      })
+      .sort((a, b) => b.captured_at.localeCompare(a.captured_at))
+      .filter((row) => {
+        const name = normalizeParkName(row.name);
+        if (seen.has(name)) return false;
+        seen.add(name);
+        return true;
+      });
+  }, [activeTab, captured, stays]);
+
   const refresh = async () => {
     setIsRefreshing(true);
     setManualRefreshMessage(null);
@@ -221,9 +253,29 @@ export default function CampFinder({
 
       <section className="results" aria-live="polite">
         {filtered.map((option) => (
-          <OptionCard key={option.id} option={option} onBook={() => setSelected(option)} />
+          <OptionCard
+            key={option.id}
+            option={option}
+            capture={captureMatches.get(option.id) ?? null}
+            onBook={() => setSelected(option)}
+          />
         ))}
       </section>
+
+      {extraCaptured.length > 0 && (
+        <section className="activity-log">
+          <h2>Freshly captured, not yet in the curated list</h2>
+          <p>
+            Available at last capture, but this park isn&apos;t one of the curated options above yet —
+            no pricing or facility detail to show.
+          </p>
+          {extraCaptured.map((row) => (
+            <div key={row.id} className="log-row new">
+              {row.name} · from {row.level || "BC Parks"} · captured {timeAgo(row.captured_at)}
+            </div>
+          ))}
+        </section>
+      )}
 
       <CapturePanel captured={captured} onCaptured={setCaptured} />
 
@@ -382,7 +434,15 @@ function CapturePanel({
   );
 }
 
-function OptionCard({ option, onBook }: { option: StayOption; onBook: () => void }) {
+function OptionCard({
+  option,
+  capture,
+  onBook,
+}: {
+  option: StayOption;
+  capture: CapturedRowRecord | null;
+  onBook: () => void;
+}) {
   const fireLabel =
     option.fireStatus === "allowed"
       ? "Campfire check: no matching ban in sample"
@@ -411,6 +471,23 @@ function OptionCard({ option, onBook }: { option: StayOption; onBook: () => void
           <span key={date}>{date}</span>
         ))}
       </div>
+
+      {capture && (
+        <div className={`fire ${capture.available ? "allowed" : "unknown"}`}>
+          <ShieldCheck size={18} />
+          <div>
+            <strong>
+              Live check: {capture.available ? "available" : "not available"} at last capture
+            </strong>
+            <p>
+              {capture.start_date && capture.end_date
+                ? `${capture.start_date} → ${capture.end_date} · `
+                : ""}
+              captured {timeAgo(capture.captured_at)} from {capture.level || "BC Parks"}
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="facts">
         <span>
@@ -580,6 +657,47 @@ function getBookingPreset(option: StayOption): BookingPreset {
     equipment: option.type === "cabin" ? "Cabin" : "Tent",
     partySize: "4 people",
   };
+}
+
+/** "Alice Lake Park" and captured "Alice Lake" both normalize to "alice lake". */
+function normalizeParkName(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/\bpark\b/g, "")
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Finds the most recent capture whose name matches a stay's park name.
+ *
+ * Captures come from three drill-down levels (region, park, site), so a park
+ * name can appear verbatim (park level) or as a substring of a more specific
+ * name; matching both directions catches that without over-matching unrelated
+ * parks that merely share a common word.
+ */
+function findCaptureMatch(park: string, captured: CapturedRowRecord[]) {
+  const target = normalizeParkName(park);
+  if (!target) return null;
+
+  const matches = captured.filter((row) => {
+    const name = normalizeParkName(row.name);
+    return name.length > 0 && (name === target || name.includes(target) || target.includes(name));
+  });
+
+  return matches.sort((a, b) => b.captured_at.localeCompare(a.captured_at))[0] ?? null;
+}
+
+function timeAgo(iso: string) {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "just now";
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
 }
 
 function isMultiSiteBooking(option: StayOption) {
