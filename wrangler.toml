@@ -14,9 +14,9 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "bc-parks-camp-finder-d1"
-# Replace with the real database id from `wrangler d1 create` before the first
-# direct Cloudflare deploy. OpenAI Sites deploys ignore this value.
-database_id = "00000000-0000-4000-8000-000000000000"
+# Created via `wrangler d1 create bc-parks-camp-finder-d1` (region WNAM).
+# OpenAI Sites deploys ignore this value and inject their own binding.
+database_id = "e500104b-b81c-4009-806b-49bf8b0cc5b6"
 
 [triggers]
 # Midnight Pacific. GitHub Actions' own `schedule:` trigger was firing 5-11
