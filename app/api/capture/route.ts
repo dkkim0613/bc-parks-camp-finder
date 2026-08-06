@@ -4,6 +4,23 @@ import type { CapturePayload } from "@/lib/bcparks-capture";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * The capture bookmarklet runs on camping.bcparks.ca and posts here, so this
+ * route answers cross-origin requests. It only ever accepts availability rows
+ * the user already had on screen — there is nothing sensitive to protect behind
+ * an origin check, and the response carries no credentials.
+ */
+const CORS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "POST, GET, OPTIONS",
+  "access-control-allow-headers": "content-type",
+  "access-control-max-age": "86400",
+};
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: CORS });
+}
+
 type CapturedRowRecord = {
   id: string;
   name: string;
@@ -29,7 +46,7 @@ export async function GET() {
     )
     .all<CapturedRowRecord>();
 
-  return Response.json({ rows: result.results });
+  return Response.json({ rows: result.results }, { headers: CORS });
 }
 
 /**
@@ -45,13 +62,13 @@ export async function POST(request: Request) {
   if (!payload || !Array.isArray(payload.rows)) {
     return Response.json(
       { message: "Expected the JSON produced by the capture bookmarklet." },
-      { status: 400 }
+      { status: 400, headers: CORS }
     );
   }
   if (payload.rows.length === 0) {
     return Response.json(
       { message: "That capture had no result rows. Run it on a BC Parks results page in list view." },
-      { status: 400 }
+      { status: 400, headers: CORS }
     );
   }
 
@@ -111,5 +128,5 @@ export async function POST(request: Request) {
     message: `Captured ${payload.rows.length} row(s) from "${level || "BC Parks"}" · ${availableCount} available.`,
     stored: payload.rows.length,
     available: availableCount,
-  });
+  }, { headers: CORS });
 }

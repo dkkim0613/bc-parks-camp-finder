@@ -1,11 +1,11 @@
 /**
  * Bookmarklet that reads an already-rendered BC Parks search-results page.
  *
- * This never issues its own request to camping.bcparks.ca. The user runs their
- * own normal search in their own logged-in browser tab, and this only reads the
- * DOM that is already on screen, then puts the extracted rows on the clipboard
- * for pasting into the dashboard. That keeps it clear of the Azure WAF bot
- * challenge that blocks any automated fetch of the site.
+ * This never issues its own request to the reservation site. The user runs
+ * their own normal search in their own logged-in browser tab, and this only
+ * reads the DOM already on screen, then posts those rows to this dashboard
+ * (falling back to the clipboard if that send is blocked). That keeps it clear
+ * of the Azure WAF bot challenge that rejects automated reads of the site.
  *
  * Selectors below come from the real rendered markup of
  * /create-booking/results?...&view=list (Angular `app-legacy-list-view`):
@@ -67,30 +67,62 @@ export const CAPTURE_SOURCE = `(() => {
   };
 
   const json = JSON.stringify(payload, null, 2);
-  const done = () => window.alert(
-    "BC Parks capture: " + rows.length + " row(s) copied.\\n\\n" +
-    (payload.pageTitle ? "Level: " + payload.pageTitle + "\\n" : "") +
-    "Paste it into the dashboard's Capture box."
-  );
-  const fallback = () => {
-    const box = document.createElement("textarea");
-    box.value = json;
-    box.style.cssText = "position:fixed;top:5%;left:5%;width:90%;height:70%;z-index:2147483647;font:12px monospace";
-    document.body.appendChild(box);
-    box.focus();
-    box.select();
-    window.alert("Clipboard was blocked. The JSON is selected in the box - copy it, then remove the box by reloading.");
+  const summary = rows.filter((r) => r.available).length + " available of " + rows.length +
+    (payload.pageTitle ? " in " + payload.pageTitle : "");
+
+  const copyFallback = (why) => {
+    const finish = () => window.alert(
+      why + "\\n\\nCaptured " + summary + " and copied it instead.\\nPaste it into the dashboard's Capture box."
+    );
+    const manual = () => {
+      const box = document.createElement("textarea");
+      box.value = json;
+      box.style.cssText = "position:fixed;top:5%;left:5%;width:90%;height:70%;z-index:2147483647;font:12px monospace";
+      document.body.appendChild(box);
+      box.focus();
+      box.select();
+      window.alert(why + "\\n\\nClipboard was blocked too. The JSON is selected - copy it, then reload to clear.");
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(json).then(finish, manual);
+    } else {
+      manual();
+    }
   };
 
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(json).then(done, fallback);
+  // ENDPOINT is substituted in when the dashboard renders this bookmarklet, so
+  // one click sends the capture straight there and no copy/paste is needed.
+  // camping.bcparks.ca sets no connect-src (nor default-src) in its CSP, so a
+  // cross-origin POST out is allowed; the dashboard answers the preflight.
+  const endpoint = "__CAPTURE_ENDPOINT__";
+  if (endpoint && endpoint.indexOf("http") === 0) {
+    fetch(endpoint, {
+      method: "POST",
+      mode: "cors",
+      headers: { "content-type": "application/json" },
+      body: json,
+    })
+      .then((res) => res.json().catch(() => ({})).then((data) => {
+        if (!res.ok) throw new Error((data && data.message) || ("HTTP " + res.status));
+        window.alert("Sent to dashboard: " + ((data && data.message) || summary));
+      }))
+      .catch((err) => copyFallback("Could not reach the dashboard (" + err.message + ")."));
   } else {
-    fallback();
+    copyFallback("No dashboard endpoint configured.");
   }
 })()`;
 
-export function captureBookmarklet() {
-  return `javascript:${encodeURIComponent(CAPTURE_SOURCE)}`;
+/**
+ * Builds the bookmarklet URL.
+ *
+ * Pass the dashboard's own `/api/capture` URL to get the one-click version that
+ * posts directly. With no endpoint the bookmarklet falls back to copying the
+ * JSON for manual pasting, which is what the standalone install page uses
+ * before the dashboard has been deployed anywhere.
+ */
+export function captureBookmarklet(endpoint?: string) {
+  const source = CAPTURE_SOURCE.replace("__CAPTURE_ENDPOINT__", endpoint ?? "");
+  return `javascript:${encodeURIComponent(source)}`;
 }
 
 export type CapturedRow = {

@@ -61,17 +61,31 @@ test("captures availability by reading the page instead of fetching BC Parks", a
     source("app/camp-finder.tsx"),
   ]);
 
-  // Selectors below must match the real rendered BC Parks results markup.
-  assert.match(capture, /\[role="listitem"\]\.list-entry/);
-  assert.match(capture, /h3\[id\^="map-link-name-"\]/);
-  assert.match(capture, /\[id\^="availability-"\]/);
-  assert.match(capture, /\.availability-label/);
-  assert.match(capture, /cdk-visually-hidden/);
+  // Assert against the bookmarklet body only, so prose in the doc comment
+  // cannot satisfy or break these checks.
+  const start = capture.indexOf("`", capture.indexOf("CAPTURE_SOURCE")) + 1;
+  const body = capture.slice(start, capture.indexOf("`;", start));
 
-  // The bookmarklet must never issue its own request to BC Parks.
-  assert.doesNotMatch(capture, /fetch\(/);
-  assert.doesNotMatch(capture, /XMLHttpRequest/);
-  assert.match(capture, /navigator\.clipboard/);
+  // Selectors below must match the real rendered BC Parks results markup.
+  assert.match(body, /\[role="listitem"\]\.list-entry/);
+  assert.match(body, /h3\[id\^="map-link-name-"\]/);
+  assert.match(body, /\[id\^="availability-"\]/);
+  assert.match(body, /\.availability-label/);
+  assert.match(body, /cdk-visually-hidden/);
+
+  // The bookmarklet may post its findings to our own dashboard, but it must
+  // never request anything from BC Parks itself — it only reads the page the
+  // user already loaded. Check the executable code with comments stripped, so
+  // a mention of the domain in a note is not mistaken for a request to it.
+  const code = body.replace(/\/\/[^\n]*/g, "");
+  assert.doesNotMatch(code, /bcparks\.ca/);
+  assert.doesNotMatch(code, /XMLHttpRequest/);
+  assert.match(body, /__CAPTURE_ENDPOINT__/);
+  assert.match(body, /navigator\.clipboard/);
+
+  // Cross-origin POST from camping.bcparks.ca needs preflight + CORS headers.
+  assert.match(route, /export async function OPTIONS/);
+  assert.match(route, /access-control-allow-origin/);
 
   assert.match(route, /export async function POST/);
   assert.match(route, /captured_availability/);

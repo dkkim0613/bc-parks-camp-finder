@@ -15,9 +15,12 @@ const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 // entirely to wrangler.toml so the D1 binding isn't declared twice.
 const isCloudflareDirectDeploy = process.env.CLOUDFLARE_DIRECT_DEPLOY === "1";
 
+// `compatibility_flags` is intentionally absent: wrangler.toml already declares
+// nodejs_compat, and the Cloudflare plugin merges both sources, so repeating it
+// here makes workerd fail to boot with "Compatibility flag specified multiple
+// times: nodejs_compat".
 const localBindingConfig = {
   main: "./worker/index.ts",
-  compatibility_flags: ["nodejs_compat"],
   d1_databases: d1
     ? [
         {

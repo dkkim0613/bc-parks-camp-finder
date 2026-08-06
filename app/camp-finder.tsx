@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   AlertTriangle,
   CalendarDays,
@@ -282,7 +282,15 @@ function CapturePanel({
   const [pasted, setPasted] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const bookmarklet = captureBookmarklet();
+  // Read on the client so the bookmarklet points at whatever host this
+  // dashboard is actually being served from. useSyncExternalStore keeps the
+  // server render ("") and the first client render in agreement.
+  const origin = useSyncExternalStore(
+    () => () => {},
+    () => window.location.origin,
+    () => ""
+  );
+  const bookmarklet = captureBookmarklet(origin ? `${origin}/api/capture` : undefined);
 
   const submit = async () => {
     setIsSaving(true);
@@ -331,8 +339,11 @@ function CapturePanel({
 
       <ol className="booking-steps">
         <li>Search on camping.bcparks.ca as usual and switch the results to List view.</li>
-        <li>Click the saved <strong>BC Parks Capture</strong> bookmark — it copies what is on screen.</li>
-        <li>Paste it below and save. Drill into a region or park and repeat for finer detail.</li>
+        <li>
+          Click the saved <strong>BC Parks Capture</strong> bookmark — it sends what is on screen
+          straight here. Drill into a region or park and click again for finer detail.
+        </li>
+        <li>No copy/paste needed. The box below is only a fallback if the send is blocked.</li>
       </ol>
 
       <textarea
