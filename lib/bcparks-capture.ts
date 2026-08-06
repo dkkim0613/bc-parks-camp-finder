@@ -21,7 +21,16 @@
  */
 export const CAPTURE_SOURCE = `(() => {
   const text = (el) => (el ? (el.textContent || "").replace(/\\s+/g, " ").trim() : "");
-  const entries = Array.from(document.querySelectorAll('[role="listitem"].list-entry, .list-entry'));
+  const found = Array.from(document.querySelectorAll('[role="listitem"].list-entry, .list-entry'));
+
+  // At the individual-site level BC Parks renders each row more than once (the
+  // markup carries hide_xs / hide_gt-xs responsive variants, and entries can
+  // nest), which without this returned every site twice. Keep only innermost
+  // matches, then collapse by name - names are unique within one result list at
+  // every drill-down level, so this cannot merge two genuinely different rows.
+  const entries = found.filter((el) => !found.some((other) => other !== el && el.contains(other)));
+
+  const seen = Object.create(null);
 
   const rows = entries.map((entry) => {
     const heading = entry.querySelector('h3[id^="map-link-name-"]') || entry.querySelector("h3");
@@ -42,7 +51,12 @@ export const CAPTURE_SOURCE = `(() => {
       available: /available/i.test(label) && !/not\\s+available|unavailable/i.test(label),
       iconHint: iconClass,
     };
-  }).filter((row) => row.name);
+  }).filter((row) => {
+    if (!row.name) return false;
+    if (seen[row.name]) return false;
+    seen[row.name] = true;
+    return true;
+  });
 
   const params = new URLSearchParams(location.search);
   const dateField = (id) => {

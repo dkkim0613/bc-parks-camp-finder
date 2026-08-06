@@ -73,6 +73,11 @@ test("captures availability by reading the page instead of fetching BC Parks", a
   assert.match(body, /\.availability-label/);
   assert.match(body, /cdk-visually-hidden/);
 
+  // Site-level results render each row more than once; without both of these
+  // a capture of one campground reported every site twice.
+  assert.match(body, /el\.contains\(other\)/);
+  assert.match(body, /seen\[row\.name\]/);
+
   // The bookmarklet may post its findings to our own dashboard, but it must
   // never request anything from BC Parks itself — it only reads the page the
   // user already loaded. Check the executable code with comments stripped, so
