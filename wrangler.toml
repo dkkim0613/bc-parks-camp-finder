@@ -1,0 +1,27 @@
+# Real config for a direct Cloudflare deploy of the camp finder Worker.
+# `vinext build` with CLOUDFLARE_DIRECT_DEPLOY=1 generates
+# dist/server/wrangler.json from this file, and
+# `wrangler deploy --config dist/server/wrangler.json` is what ships.
+#
+# On OpenAI Sites the control plane injects the D1 binding instead, driven by
+# the `d1` field in .openai/hosting.json.
+
+name = "bc-parks-camp-finder"
+main = "worker/index.ts"
+compatibility_date = "2026-07-29"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bc-parks-camp-finder-d1"
+# Replace with the real database id from `wrangler d1 create` before the first
+# direct Cloudflare deploy. OpenAI Sites deploys ignore this value.
+database_id = "00000000-0000-4000-8000-000000000000"
+
+[triggers]
+# Midnight Pacific. GitHub Actions' own `schedule:` trigger was firing 5-11
+# hours late on every run for this repo, which is why the old daily refresh
+# never actually ran; Cloudflare Cron Triggers hold much tighter timing.
+# 07:00 UTC is midnight PDT; during PST it lands at 23:00 the previous day,
+# which is still the intended "around midnight" slot.
+crons = ["0 7 * * *"]

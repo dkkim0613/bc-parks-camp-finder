@@ -1,0 +1,88 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const root = new URL("../", import.meta.url);
+
+async function source(path) {
+  return readFile(new URL(path, root), "utf8");
+}
+
+test("schedules the daily refresh with a Cloudflare Cron Trigger, not GitHub Actions", async () => {
+  const [wrangler, worker] = await Promise.all([
+    source("wrangler.toml"),
+    source("worker/index.ts"),
+  ]);
+
+  assert.match(wrangler, /\[triggers\]/);
+  assert.match(wrangler, /crons = \["0 7 \* \* \*"\]/);
+  assert.match(worker, /async scheduled\(/);
+  assert.match(worker, /runRefresh\("Cloudflare Cron scheduled refresh", false\)/);
+});
+
+test("keeps one scheduled refresh per Vancouver calendar day but lets manual force through", async () => {
+  const [refresh, route] = await Promise.all([
+    source("lib/refresh.ts"),
+    source("app/api/refresh/route.ts"),
+  ]);
+
+  assert.match(refresh, /refreshed_date_vancouver/);
+  assert.match(refresh, /if \(!force && previous\?\.refreshed_date_vancouver === date\)/);
+  assert.match(route, /runRefresh\("Manual dashboard refresh", true\)/);
+});
+
+test("stores stays in D1 instead of a hardcoded array", async () => {
+  const [schema, initialize, page] = await Promise.all([
+    source("db/schema.ts"),
+    source("db/initialize.ts"),
+    source("app/page.tsx"),
+  ]);
+
+  assert.match(schema, /export const stays = sqliteTable\("stays"/);
+  assert.match(schema, /export const refreshStatus = sqliteTable\("refresh_status"/);
+  assert.match(initialize, /porteau-cove-main/);
+  assert.match(initialize, /saysutshun-cabin/);
+  assert.match(page, /SELECT \* FROM stays/);
+  assert.match(page, /force-dynamic/);
+});
+
+test("keeps the single-site rule and party cap in the filter chain", async () => {
+  const finder = await source("app/camp-finder.tsx");
+
+  assert.match(finder, /double\|paired\|two\[-\\s\]\?site\|2\[-\\s\]\?site\|multi\[-\\s\]\?site/);
+  assert.match(finder, /option\.maxParty <= 4/);
+  assert.match(finder, /!isMultiSiteBooking\(option\)/);
+});
+
+test("captures availability by reading the page instead of fetching BC Parks", async () => {
+  const [capture, route, finder] = await Promise.all([
+    source("lib/bcparks-capture.ts"),
+    source("app/api/capture/route.ts"),
+    source("app/camp-finder.tsx"),
+  ]);
+
+  // Selectors below must match the real rendered BC Parks results markup.
+  assert.match(capture, /\[role="listitem"\]\.list-entry/);
+  assert.match(capture, /h3\[id\^="map-link-name-"\]/);
+  assert.match(capture, /\[id\^="availability-"\]/);
+  assert.match(capture, /\.availability-label/);
+  assert.match(capture, /cdk-visually-hidden/);
+
+  // The bookmarklet must never issue its own request to BC Parks.
+  assert.doesNotMatch(capture, /fetch\(/);
+  assert.doesNotMatch(capture, /XMLHttpRequest/);
+  assert.match(capture, /navigator\.clipboard/);
+
+  assert.match(route, /export async function POST/);
+  assert.match(route, /captured_availability/);
+  assert.match(finder, /CapturePanel/);
+  assert.match(finder, /\/api\/capture/);
+});
+
+test("keeps booking handoff manual and never submits payment", async () => {
+  const finder = await source("app/camp-finder.tsx");
+
+  assert.match(finder, /never submit payment or final confirmation/);
+  assert.match(finder, /complete cart\/payment manually/);
+  assert.match(finder, /makeAutofillBookmarklet/);
+});
