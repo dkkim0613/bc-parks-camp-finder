@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import ts from "typescript";
 
 const root = new URL("../", import.meta.url);
 
@@ -96,6 +97,65 @@ test("captures availability by reading the page instead of fetching BC Parks", a
   assert.match(route, /captured_availability/);
   assert.match(finder, /CapturePanel/);
   assert.match(finder, /\/api\/capture/);
+});
+
+test("ties captured availability to the curated park list", async () => {
+  const finder = await source("app/camp-finder.tsx");
+
+  assert.match(finder, /function normalizeParkName/);
+  assert.match(finder, /function findCaptureMatch/);
+  assert.match(finder, /captureMatches/);
+  assert.match(finder, /Live check:/);
+  assert.match(finder, /extraCaptured/);
+  assert.match(finder, /Freshly captured, not yet in the curated list/);
+});
+
+test("normalizeParkName and findCaptureMatch behave correctly against real capture shapes", async () => {
+  const finder = await source("app/camp-finder.tsx");
+
+  // Load the two functions as executable code without importing the whole
+  // client component (which needs a DOM / React runtime this test doesn't have).
+  const extract = (name) => {
+    const start = finder.indexOf(`function ${name}`);
+    const bodyStart = finder.indexOf("{", start);
+    let depth = 0;
+    for (let i = bodyStart; i < finder.length; i += 1) {
+      if (finder[i] === "{") depth += 1;
+      if (finder[i] === "}") {
+        depth -= 1;
+        if (depth === 0) return finder.slice(start, i + 1);
+      }
+    }
+    throw new Error(`could not extract ${name}`);
+  };
+
+  // These functions carry TypeScript parameter types, so transpile them with
+  // the real compiler rather than eval'ing TS syntax as if it were JS.
+  const tsSource = `${extract("normalizeParkName")}\n${extract("findCaptureMatch")}\nexport { normalizeParkName, findCaptureMatch };`;
+  const { outputText } = ts.transpileModule(tsSource, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS },
+  });
+  const compiledModule = { exports: {} };
+  new Function("exports", outputText)(compiledModule.exports);
+  const { normalizeParkName, findCaptureMatch } = compiledModule.exports;
+
+  assert.equal(normalizeParkName("Alice Lake Park"), normalizeParkName("Alice Lake"));
+
+  // Real rows captured earlier in this project's history, matched against the
+  // curated stays seed (db/initialize.ts).
+  const captured = [
+    { name: "Alice Lake", captured_at: "2026-08-06T01:24:37.333Z" },
+    { name: "Golden Ears", captured_at: "2026-08-06T01:24:37.000Z" },
+    { name: "Co12", captured_at: "2026-08-06T01:24:37.333Z" },
+    { name: "Sx̱ótsaqel / Chilliwack Lake", captured_at: "2026-08-06T01:24:37.333Z" },
+  ];
+
+  assert.equal(findCaptureMatch("Alice Lake Park", captured)?.name, "Alice Lake");
+  assert.equal(findCaptureMatch("Golden Ears Park", captured)?.name, "Golden Ears");
+  // Porteau Cove was never captured, must not false-match an unrelated row.
+  assert.equal(findCaptureMatch("Porteau Cove Park", captured), null);
+  // A bare site code must not be mistaken for a park-level capture.
+  assert.equal(findCaptureMatch("Cultus Lake Park", captured), null);
 });
 
 test("keeps booking handoff manual and never submits payment", async () => {
